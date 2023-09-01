@@ -18,7 +18,7 @@ const storeSchema = new Schema({
     address: String,
     status: {
         type: String,
-        enum: ['active', 'inactive'],
+        enum: ['active', 'in-active'],
         default: 'active'
     },
     manager: {
