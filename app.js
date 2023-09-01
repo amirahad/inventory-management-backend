@@ -13,7 +13,7 @@ app.get("/", (req, res) => {
   res.send("Route is working! YaY!");
 });
 
-app.use("/api", apiRouters);
+app.use("/api/v1", apiRouters);
 
 
 module.exports = app;

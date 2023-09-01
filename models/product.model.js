@@ -14,7 +14,7 @@ const productSchema = new Schema({
     },
     unit: {
         type: String,
-        //required: [true, "Product unit is required"],
+        required: [true, "Product unit is required"],
         enum: {
             values: [
                 "kg",

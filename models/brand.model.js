@@ -1,6 +1,6 @@
 const  { Schema, model } = require('mongoose');
 const validator = require('validator');
-const { ObjectId } = mongoose.Schema.Types
+const { ObjectId } = Schema.Types
 
 const brandSchema = new Schema({
     name: {
@@ -42,7 +42,7 @@ const brandSchema = new Schema({
     }],
     status: {
         type: String,
-        enum: ['active', 'inactive'],
+        enum: ['active', 'in-active'],
         default: 'active'
     }
 

@@ -1,6 +1,6 @@
 const { Schema, model } = require('mongoose');
 const validator = require('validator');
-const { ObjectId } = mongoose.Schema.Types
+const { ObjectId } = Schema.Types
 
 const storeSchema = new Schema({
     name: {
@@ -12,7 +12,6 @@ const storeSchema = new Schema({
             values: ['dhaka', 'chattogram', 'khulna', 'rajshahi', 'sylhet', 'barishal', 'rangpur', 'other'],
             message: 'Please select correct store'
         }
-
     },
     description: String,
     phone: String,
