@@ -8,7 +8,7 @@ const getBrands = async (req, res) => {
             .find({
                 ...status
             })
-            .select('-products -suppliers')
+            .populate('products')
         res.status(200).json({
             status: 'success',
             data: brands

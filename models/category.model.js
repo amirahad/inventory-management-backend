@@ -16,8 +16,10 @@ const categorySchema = new Schema({
         type: String,
         validate: [validator.isURL, 'Invalid URL'],
     },
-
-
+    products: [{
+        type: ObjectId,
+        ref: 'Product'
+    }],
 }, { timestamps: true });
 
 const Category = model('Category', categorySchema);

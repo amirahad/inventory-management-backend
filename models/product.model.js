@@ -60,7 +60,7 @@ const productSchema = new Schema({
     //     ref: 'category',
     // }],
     images: [{
-        required: [true, "Product images are required"],
+        // required: [true, "Product images are required"],
         type: String,
         validate: {
             validator: (v) => {

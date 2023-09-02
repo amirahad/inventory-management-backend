@@ -1,4 +1,6 @@
 const Product = require("../models/product.model");
+const Brand = require("../models/brand.model");
+const Category = require("../models/category.model");
 
 const getProducts = (async (req, res) => {
     try {
@@ -19,9 +21,8 @@ const getProduct = (async (req, res) => {
             name: req.params.name
         })
         res.status(200).json({
-            product,
-            message: "Product Added Successfully",
-            status: "success"
+            status: "success",
+            product
         });
     } catch (error) {
         res.status(500).json({ error: error.message })
@@ -32,8 +33,23 @@ const getProduct = (async (req, res) => {
 const postProduct = (async (req, res, next) => {
     try {
         const product = new Product(req.body)
-        const createdProduct = await product.save();
+
+
+        const { _id, brand, categories } = product
+
+        await Brand.updateOne(
+            { _id: brand.id },
+            { $push: { products: _id } }
+        );
+
+        await Category.updateOne(
+            { _id: categories.id },
+            { $push: { products: _id } }
+        );
+        const createdProduct = await product.save()
         res.status(201).json(createdProduct);
+
+
     } catch (error) {
         res.status(500).json({ error: error.message })
     }
