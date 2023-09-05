@@ -1,4 +1,5 @@
 const Stock = require('../models/stock.model');
+const { ObjectId } = require('mongoose').Types;
 
 const getStocks = (async (req, res) => {
     try {
@@ -26,8 +27,27 @@ const getStocks = (async (req, res) => {
             queries.select = fields
         }
 
-        const stocks = await Stock.find(filters, null, queries)
-
+        const stocks = await Stock.find(filters).skip(queries.skip).limit(queries.limit).sort(queries.sort)
+        // const stocks = await Stock.aggregate([
+        //     { $match: {} },
+        //     {
+        //         $project: {
+        //             store: 1,
+        //             price: { $convert: { input: '$price', to: 'int' } },
+        //             quantity: { $convert: { input: '$quantity', to: 'int' } },
+        //         }
+        //     },
+        //     {
+        //         $group: {
+        //             _id: '$store.name',
+        //             totalProductPrice: {
+        //                 $sum: {
+        //                     $multiply: ['$price', '$quantity']
+        //                 }
+        //             }
+        //         }
+        //     }
+        // ])
 
         res.status(200).json({
             stocks
@@ -42,10 +62,56 @@ const getStocks = (async (req, res) => {
 
 const getStock = (async (req, res) => {
     try {
-        const stock = await Stock.findById(req.params.id)
-        res.status(200).json({
-            stock
-        });
+        const stock = await Stock.aggregate([
+            { $match: { _id: ObjectId(req.params.id) } },
+            {
+                $project: {
+                    _id: 1,
+                    name: 1,
+                    description: 1,
+                    images: 1,
+                    price: 1,
+                    quantity: 1,
+                    status: 1,
+                    'store.id': 1,
+                    'supplier.id': 1,
+                    sellCount: 1,
+                }
+            },
+            {
+                $lookup: {
+                    from: 'stores',
+                    localField: 'store.id',
+                    foreignField: '_id',
+                    as: 'store'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'suppliers',
+                    localField: 'supplier.id',
+                    foreignField: '_id',
+                    as: 'supplier'
+                }
+            },
+            {
+                $unwind: '$store'
+            },
+            {
+                $unwind: '$supplier'
+            }
+        ])
+
+        if (stock) {
+            res.status(200).json({
+                stock
+            });
+        } else {
+            res.status(404).json({
+                status: "error",
+                error: "Stock not found"
+            })
+        }
     } catch (error) {
         res.status(500).json({
             status: "error",
