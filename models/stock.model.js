@@ -12,6 +12,7 @@ const stockSchema = new Schema({
         type: String,
         required: [true, "Product name is required"],
         trim: true,
+        lowercase: true,
         maxLength: [100, "Product name cannot exceed 100 characters"]
     },
     description: {
@@ -53,27 +54,11 @@ const stockSchema = new Schema({
             ref: 'Brand',
         },
     },
-    // images: [{
-    //     required: [true, "Product images are required"],
-    //     type: String,
-    //     validate: {
-    //         validator: (v) => {
-    //             //check if not an array
-    //             if (!Array.isArray(v)) {
-    //                 return false;
-    //             }
-    //             //check if array elements are valid url
-    //             let isValid = true;
-    //             v.forEach((url) => {
-    //                 if (!validator.isURL(url)) {
-    //                     isValid = false;
-    //                 }
-    //             });
-    //             return isValid;
-    //         },
-    //         message: "Product should have at least one image"
-    //     }
-    // }],
+    images: [{
+        // required: [true, "Product images are required"],
+        type: String,
+        validate: [validator.isURL, 'Invalid URL']
+    }],
     price: {
         type: Number,
         required: [true, "Product price is required"],
@@ -109,7 +94,7 @@ const stockSchema = new Schema({
             required: [true, 'Store id is required']
         }
     },
-    supplier:{
+    supplier: {
         name: {
             type: String,
             required: [true, 'Supplier name is required'],
@@ -121,5 +106,13 @@ const stockSchema = new Schema({
             ref: 'Supplier',
             required: [true, 'Supplier id is required']
         }
-    }
+    },
+    sellCount: {
+        type: Number,
+        default: 0
+    },
 }, { timestamps: true });
+
+const Stock = model('Stock', stockSchema);
+
+module.exports = Stock;

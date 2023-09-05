@@ -1,5 +1,6 @@
 const { Schema, model } = require("mongoose");
 const ObjectId = Schema.Types.ObjectId;
+const validator = require("validator");
 
 const productSchema = new Schema({
     name: {
@@ -51,88 +52,11 @@ const productSchema = new Schema({
             ref: 'Category',
         },
     },
-    // subcategories: [{
-    //     type: Schema.Types.ObjectId,
-    //     ref: 'category',
-    // }],
-    // child_category: [{
-    //     type: Schema.Types.ObjectId,
-    //     ref: 'category',
-    // }],
     images: [{
-        // required: [true, "Product images are required"],
         type: String,
-        validate: {
-            validator: (v) => {
-                //check if not an array
-                if (!Array.isArray(v)) {
-                    return false;
-                }
-                //check if array elements are valid url
-                let isValid = true;
-                v.forEach((url) => {
-                    if (!validator.isURL(url)) {
-                        isValid = false;
-                    }
-                });
-                return isValid;
-            },
-            message: "Product should have at least one image"
-        }
+        required: [true, "Product images are required"],
+        validate: [validator.isURL, 'Invalid URL']
     }],
-    // category: {
-    //     type: String,
-    //     required: [true, "Product category is required"],
-    //     enum: {
-    //         values: [
-    //             "Electronics",
-    //             "Cameras",
-    //             "Laptops",
-    //             "Accessories",
-    //             "Headphones",
-    //             "Food",
-    //             "Books",
-    //             "Clothes/Shoes",
-    //             "Beauty/Health",
-    //             "Sports",
-    //             "Outdoor",
-    //             "Home"
-    //         ],
-    //         message: "Please select correct category for product"
-    //     }
-    // },
-    // seller: {
-    //     type: Schema.Types.ObjectId,
-    //     ref: "Seller",
-    //     required: [true, "Product seller is required"]
-    // },
-
-    // reviews: [
-    //     {
-    //         user: {
-    //             type: Schema.Types.ObjectId,
-    //             ref: "User",
-    //             required: true
-    //         },
-    //         name: {
-    //             type: String,
-    //             required: true
-    //         },
-    //         rating: {
-    //             type: Number,
-    //             required: true
-    //         },
-    //         comment: {
-    //             type: String,
-    //             required: true
-    //         }
-    //     }
-    // ],
-    // user: {
-    //     type: Schema.Types.ObjectId,
-    //     ref: "User",
-    //     required: true
-    // },
 
 }, { timestamps: true })
 

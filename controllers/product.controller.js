@@ -64,11 +64,12 @@ const updateProduct = (async (req, res, next) => {
             // res.status(200).json(updatedProduct);
             const updatedProduct = await Product.updateOne({ _id: req.params.id },
                 { $set: req.body },
-                runValidators = true
+                { runValidators: true }
             );
             res.status(200).json({
                 message: "Product Updated Successfully",
-                status: "success"
+                status: "success",
+                updatedProduct
             });
         } else {
             res.status(404).json({ message: "Product not found" })
