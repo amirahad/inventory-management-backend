@@ -4,14 +4,17 @@ const jwt = require('jsonwebtoken');
 
 const User = require('../models/user.model');
 const OTP = require('../models/otp.model');
-const {generateOTP} = require('../utils/common');
+const { generateOTP } = require('../utils/common');
+
+
+const secret = process.env.JWT_SECRET
 
 
 
 const userRegistration = async (req, res, next) => {
     try {
-        let {body} = req;
-        const exitUser = await User.findOne({$or: [{email: body.email}, {phone: body.phone}]});
+        let { body } = req;
+        const exitUser = await User.findOne({ $or: [{ email: body.email }, { phone: body.phone }] });
         if (!!exitUser) {
             return res.status(400).send({
                 error: true,
@@ -19,7 +22,7 @@ const userRegistration = async (req, res, next) => {
             });
         }
 
-        let hashedPassword= '';
+        let hashedPassword = '';
         if (!!body.password) {
             hashedPassword = await bcrypt.hash(body.password, 8);
         } else {
@@ -41,7 +44,7 @@ const userRegistration = async (req, res, next) => {
 
         // opt send
         //***************************************************
-        let otp = await OTP.findOne({phone: body.phone, action: 'signup'});
+        let otp = await OTP.findOne({ phone: body.phone, action: 'signup' });
         if (!!otp) {
             return res.status(401).send({
                 error: true,
@@ -55,7 +58,7 @@ const userRegistration = async (req, res, next) => {
                 body: otp_msg,
                 to: [user.phone]
             }
-            console.log({smsData})
+            console.log({ smsData })
             // if (process.env.NODE_ENV === "production") {
             //     await sendSMSMessageBird(smsData);
             // }
@@ -90,17 +93,17 @@ const userRegistration = async (req, res, next) => {
 
 const signupOTPVerify = async (req, res) => {
     try {
-        const {body} = req
-        let otp = await OTP.findOne({phone: body.phone, action: 'signup'})
+        const { body } = req
+        let otp = await OTP.findOne({ phone: body.phone, action: 'signup' })
         if (!!otp && otp?.attempts > 0 && body.otp === otp?.code) {
             let user = null;
-            if(!!body.token) {
+            if (!!body.token) {
                 const secret = process.env.JWT_SECRET
                 const userInfo = jwt.verify(body.token, secret)
-                
-                user = await User.findOne({_id: mongoose.Types.ObjectId(userInfo?._id)}, 'first_name middle_name last_name phone email')
+
+                user = await User.findOne({ _id: mongoose.Types.ObjectId(userInfo?._id) }, 'first_name middle_name last_name phone email')
             } else {
-                user = await User.findOne({phone: body.phone}, 'first_name middle_name last_name phone email')
+                user = await User.findOne({ phone: body.phone }, 'first_name middle_name last_name phone email')
             }
             if (!user) {
                 return res.status(404).send({
@@ -108,7 +111,7 @@ const signupOTPVerify = async (req, res) => {
                     msg: 'User Not Found'
                 })
             }
-            await User.updateOne({_id: user._id}, {$set: {verified: true, active: true}})
+            await User.updateOne({ _id: user._id }, { $set: { verified: true, active: true } })
             return res.status(200).send({
                 error: false,
                 msg: 'Successfully verified',
@@ -132,8 +135,8 @@ const signupOTPVerify = async (req, res) => {
 
 const signupResendOTP = async (req, res) => {
     try {
-        const {body} = req;
-        let otp = await OTP.findOne({phone: body.phone, action: 'signup'});
+        const { body } = req;
+        let otp = await OTP.findOne({ phone: body.phone, action: 'signup' });
         if (!!otp) {
             return res.status(401).send({
                 error: true,
@@ -142,14 +145,14 @@ const signupResendOTP = async (req, res) => {
         }
 
         let isUser = null;
-        if(!!body.token) {
+        if (!!body.token) {
             // gmail phone number verification
             const secret = process.env.JWT_SECRET
             const userInfo = jwt.verify(body.token, secret)
-            
-            isUser = await User.findOne({_id: mongoose.Types.ObjectId(userInfo?._id)})
+
+            isUser = await User.findOne({ _id: mongoose.Types.ObjectId(userInfo?._id) })
         } else {
-            isUser = await User.findOne({phone: body.phone})
+            isUser = await User.findOne({ phone: body.phone })
         }
 
         if (!isUser) {
@@ -190,9 +193,97 @@ const signupResendOTP = async (req, res) => {
     }
 }
 
+const userLogin = async (req, res) => {
+    try {
+        let { body } = req;
+        if (body.email && body.password) {
+            const email = body.email.trim().toLowerCase()
+            const user = await User.findOne({ email: email }, 'password phone verified role active');
+            if (user) {
+                let auth = await bcrypt.compare(body.password, user.password);
+                if (auth) {
+                    // console.log(user, user?.role, secret)
+                    let token = await jwt.sign({ _id: user._id, role: user.role }, secret, { expiresIn: '15d' })
+                    return res.status(200).send({
+                        error: false,
+                        msg: 'Login successful',
+                        token,
+                        role: user?.role,
+                        phone: user?.phone,
+                        verified: user?.verified,
+                        active: user?.active,
+                    })
+                } else {
+                    return res.status(401).send({
+                        error: true,
+                        msg: 'Invalid Credentials'
+                    })
+                }
+            }
+            return res.status(404).send({
+                error: true,
+                msg: 'User does not exist'
+            })
+        }
+        return res.status(404).json({
+            error: true,
+            msg: 'Invalid Credentials'
+        })
+    } catch (e) {
+        console.log(e)
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+}
+
+const userUpdatebyToken = async (req, res) => {
+    try {
+        const { body } = req;
+        const { user } = res.locals
+        console.log({ user })
+        await User.findByIdAndUpdate(user._id, { $set: body });
+        return res.status(200).send({
+            error: false,
+            msg: 'Successfully updated',
+        })
+    } catch (error) {
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+
+}
+
+const getUserList = async (req, res) => {
+    try {
+        const { user } = res.locals
+        let users = await User.find(
+            { _id: { $ne: user._id } },
+            { password: 0, __v: 0, createdAt: 0, updatedAt: 0 }
+        )
+        return res.status(200).send({
+            error: false,
+            msg: 'Successfully fetched',
+            users
+        })
+    } catch (error) {
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+
+}
+
 
 module.exports = {
     userRegistration,
     signupOTPVerify,
-    signupResendOTP
+    signupResendOTP,
+    userLogin,
+    userUpdatebyToken,
+    getUserList
 }

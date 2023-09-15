@@ -32,7 +32,7 @@ let userSchema = new Schema({
     key: String,
     role: {
         type: String,
-        enum: ['user', 'admin', 'manager', 'supplier'],
+        enum: ['user', 'admin', 'employee', 'supplier'],
         default: 'user',
     },
     verified: {
