@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user.model');
 const OTP = require('../models/otp.model');
 const { generateOTP } = require('../utils/common');
+const { decodeToken } = require('../auth');
 
 
 const secret = process.env.JWT_SECRET
@@ -260,10 +261,13 @@ const userUpdatebyToken = async (req, res) => {
 const getUserList = async (req, res) => {
     try {
         const { user } = res.locals
-        let users = await User.find(
-            { _id: { $ne: user._id } },
-            { password: 0, __v: 0, createdAt: 0, updatedAt: 0 }
-        )
+        let users = await User.find({
+            $and: [
+                { _id: { $ne: user._id } },
+                { role: { $ne: 'admin' } }
+            ]
+        }, { password: 0, __v: 0, createdAt: 0, updatedAt: 0 });
+
         return res.status(200).send({
             error: false,
             msg: 'Successfully fetched',
@@ -278,6 +282,272 @@ const getUserList = async (req, res) => {
 
 }
 
+// fetch role wise user list
+const getUserListByRole = async (req, res) => {
+    try {
+        const { user } = res.locals
+        const role = req.params.role
+        // console.log({ role })
+        let users = await User.find({
+            $and: [
+                { _id: { $ne: user._id } },
+                { role: role }
+            ]
+        }, { password: 0, __v: 0, createdAt: 0, updatedAt: 0 });
+
+        if (!users) {
+            return res.status(404).send({
+                error: true,
+                msg: 'Users not found'
+            })
+        }
+
+        return res.status(200).send({
+            error: false,
+            msg: 'Successfully fetched',
+            users
+        })
+
+    } catch (error) {
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+}
+
+const getUserAccountInfo = async (req, res, next) => {
+    try {
+        let { query } = req;
+        const { user } = res.locals;
+        console.log(query?._id)
+
+        let data = null;
+
+        if (query?._id) {
+            data = await User.findById({ _id: query?._id }, { password: 0, __v: 0, createdAt: 0, updatedAt: 0 });
+        }
+        else {
+            data = await User.findById({ _id: user?._id }, { password: 0, __v: 0, createdAt: 0, updatedAt: 0 });
+        }
+
+        if (!data) {
+            return res.status(404).send({
+                error: true,
+                msg: 'User not found'
+            })
+        }
+
+        return res.status(200).send({
+            error: false,
+            msg: 'Successfully fetched',
+            data
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+};
+
+//password reset
+
+const sendPasswordResetOtp = async (req, res) => {
+    try {
+        let { body } = req;
+        console.log({ body })
+        const user_input = body.user_input;
+        let user = await User.findOne({ $or: [{ phone: user_input }, { email: user_input?.toLowerCase() }] })
+        if (!user) {
+            return res.status(404).send({
+                error: true,
+                msg: 'User Not Found'
+            })
+        }
+        let otp = await OTP.findOne({ user_input: user_input?.toLowerCase(), action: 'password_reset' });
+        if (!!otp) {
+            return res.status(401).send({
+                error: true,
+                msg: 'Already send. Please try after 2 min'
+            });
+        }
+        let code = generateOTP();
+        const otp_msg = `Your verification OTP code ${code}`
+        if (body.type === 'email') {
+            if (EmailValidator.validate(user_input)) {
+                const data = {
+                    email: user?.email,
+                    subject: 'Password Reset Request',
+                    message: `Your requested password otp code - ${code}`,
+                }
+                console.log(data)
+                if (process.env.NODE_ENV === "production") {
+                    await sendUserEmailGeneral(data);
+                }
+            } else {
+                return res.status(404).send({
+                    error: true,
+                    msg: 'Wrong Input'
+                });
+            }
+        } else if (body.type === 'phone') {
+            if (EmailValidator.validate(user_input)) {
+                return res.status(404).send({
+                    error: true,
+                    msg: 'Wrong Input'
+                });
+            } else {
+                const smsData = {
+                    body: otp_msg,
+                    to: [user.phone]
+                }
+                console.log({ smsData })
+                if (process.env.NODE_ENV === "production") {
+                    await sendSMSMessageBird(smsData);
+                }
+            }
+        }
+        await OTP.create({
+            user_input: body.user_input,
+            code,
+            action: 'password_reset'
+        })
+        return res.status(200).send({
+            error: false,
+            msg: 'Otp sent',
+            data: {
+                otp: process.env.NODE_ENV === 'development' && code,
+                user_input: body.user_input,
+            }
+        })
+    } catch (e) {
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+};
+
+const otpVerifyForResetPassword = async (req, res) => {
+    try {
+        const { body } = req
+        const user_input = body.user_input;
+        // console.log({user_input})
+        let otp = await OTP.findOne({ user_input: user_input?.toLowerCase(), action: 'password_reset' })
+        // console.log({otp})
+        if (!!otp && otp?.attempts > 0 && body.otp === otp?.code) {
+            let user = await User.findOne({ $or: [{ phone: user_input }, { email: user_input?.toLowerCase() }] }, 'first_name middle_name last_name phone email')
+            if (!user) {
+                return res.status(404).send({
+                    error: true,
+                    msg: 'User Not Found'
+                })
+            }
+            let token = jwt.sign({ _id: user._id }, secret, { expiresIn: '10m' })
+            return res.status(200).send({
+                error: false,
+                msg: 'Successfully verified',
+                token
+            })
+        }
+        if (otp) {
+            otp.attempts -= 1
+            await otp.save()
+        }
+        return res.status(401).send({
+            error: true,
+            msg: 'Invalid/Expired otp'
+        })
+    } catch (e) {
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+}
+
+const changePasswordForOtpRequest = async (req, res) => {
+    try {
+        //get _id from token
+        const token = req.headers?.authorization?.split(" ")[1]
+        
+        const decode = jwt.verify(token, secret)
+        
+
+        let user = await User.findById(decode._id, "_id password");
+        console.log(user)
+
+        // let { _id } = res.locals.user || {};
+
+        // console.log({ _id })
+        const { body } = req;
+        // let user = await User.findById(_id, 'password');
+
+        if (user) {
+            if (body.password === body.confirmPassword) {
+                const hashedPassword = await bcrypt.hash(body.password, 8);
+                await User.findByIdAndUpdate(user._id, { $set: { password: hashedPassword } });
+                return res.status(200).send({
+                    error: false,
+                    msg: 'Successfully updated',
+                })
+            }
+            return res.status(400).send({
+                error: false,
+                msg: 'Wrong Input',
+            })
+        } else {
+            return res.status(401).send({
+                error: true,
+                msg: 'Unauthorized action'
+            })
+        }
+    } catch (e) {
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+}
+
+const passwordResetByToken = async (req, res) => {
+    try {
+        let {_id} = res.locals.user || {};
+        const {body} = req;
+        let user = await User.findById(_id, 'password');
+        if (!!user && body?.currentPassword) {
+            const isMatched = await bcrypt.compare(body.currentPassword, user.password);
+            if (isMatched) {
+                const hashedPassword = await bcrypt.hash(body.password, 8);
+                await User.updateOne({_id: user._id}, {password: hashedPassword})
+                return res.status(200).send({
+                    error: false,
+                    msg: 'Successfully updated',
+                })
+            } else {
+                return res.status(400).send({
+                    error: true,
+                    msg: 'Wrong Input',
+                })
+            }
+        } else {
+            return res.status(401).send({
+                error: true,
+                msg: 'Unauthorized action'
+            })
+        }
+    } catch (e) {
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+}
+
+
+
 
 module.exports = {
     userRegistration,
@@ -285,5 +555,11 @@ module.exports = {
     signupResendOTP,
     userLogin,
     userUpdatebyToken,
-    getUserList
+    getUserList,
+    getUserListByRole,
+    getUserAccountInfo,
+    sendPasswordResetOtp,
+    otpVerifyForResetPassword,
+    changePasswordForOtpRequest,
+    passwordResetByToken
 }

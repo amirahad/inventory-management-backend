@@ -1,4 +1,7 @@
-const { userRegistration, signupOTPVerify, signupResendOTP, userLogin, userUpdatebyToken, getUserList } = require('../../controllers/user.controller');
+const { userRegistration,
+    signupOTPVerify,
+    signupResendOTP,
+    userLogin, userUpdatebyToken, getUserList, getUserListByRole, getUserAccountInfo, sendPasswordResetOtp, otpVerifyForResetPassword, changePasswordForOtpRequest, passwordResetByToken } = require('../../controllers/user.controller');
 
 const userRoutes = require('express').Router();
 
@@ -13,6 +16,13 @@ userRoutes.post('/login', userLogin)
 
 userRoutes.post('/update', userAuth({ isAuth: true }), userUpdatebyToken)
 
-userRoutes.get('/list', userAuth({ isAdmin: true }), getUserList)
+userRoutes.get('/list/:role', userAuth({ isEmployee: true }), getUserListByRole)
+userRoutes.get('/list', userAuth({ isEmployee: true }), getUserList)
+userRoutes.get('/details', userAuth({ isAuth: true }), getUserAccountInfo);
+
+userRoutes.post('/send-reset-otp', sendPasswordResetOtp);
+userRoutes.post('/verify-reset-otp', otpVerifyForResetPassword);
+userRoutes.post('/password-reset-by-otp', changePasswordForOtpRequest);
+userRoutes.post('/password-reset-by-token', userAuth({ isAuth: true }), passwordResetByToken);
 
 module.exports = userRoutes;
