@@ -6,6 +6,7 @@ const User = require('../models/user.model');
 const OTP = require('../models/otp.model');
 const { generateOTP } = require('../utils/common');
 const { decodeToken } = require('../auth');
+const mongoose = require('mongoose');
 
 
 const secret = process.env.JWT_SECRET
@@ -232,6 +233,50 @@ const userLogin = async (req, res) => {
         })
     } catch (e) {
         console.log(e)
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+}
+
+const userVerify = async (req, res) => {
+    try {
+        // const token = req.headers?.authorization?.split(" ")[1]
+        // const decode = jwt.verify(token, secret)
+        //const decode = decodeToken(req)
+
+        if (res?.locals?.user?._id) {
+            let user = await User.aggregate([
+                {
+                    $match: {
+                        _id: mongoose.Types.ObjectId(res.locals.user._id)
+                    }
+                },
+                {
+                    $project: {
+                        password: 0,
+                        createdAt: 0,
+                        updatedAt: 0,
+                        __v: 0
+                    }
+                }
+
+            ])
+            if (user) {
+                return res.status(200).send({
+                    error: false,
+                    msg: 'Successfully verified',
+                    data: user[0],
+                })
+            }
+        }
+        return res.status(404).json({
+            error: true,
+            msg: 'User not found'
+        })
+    } catch (error) {
+        console.log(error)
         return res.status(500).send({
             error: true,
             msg: 'Server failed'
@@ -472,9 +517,9 @@ const changePasswordForOtpRequest = async (req, res) => {
     try {
         //get _id from token
         const token = req.headers?.authorization?.split(" ")[1]
-        
+
         const decode = jwt.verify(token, secret)
-        
+
 
         let user = await User.findById(decode._id, "_id password");
         console.log(user)
@@ -514,14 +559,14 @@ const changePasswordForOtpRequest = async (req, res) => {
 
 const passwordResetByToken = async (req, res) => {
     try {
-        let {_id} = res.locals.user || {};
-        const {body} = req;
+        let { _id } = res.locals.user || {};
+        const { body } = req;
         let user = await User.findById(_id, 'password');
         if (!!user && body?.currentPassword) {
             const isMatched = await bcrypt.compare(body.currentPassword, user.password);
             if (isMatched) {
                 const hashedPassword = await bcrypt.hash(body.password, 8);
-                await User.updateOne({_id: user._id}, {password: hashedPassword})
+                await User.updateOne({ _id: user._id }, { password: hashedPassword })
                 return res.status(200).send({
                     error: false,
                     msg: 'Successfully updated',
@@ -554,6 +599,7 @@ module.exports = {
     signupOTPVerify,
     signupResendOTP,
     userLogin,
+    userVerify,
     userUpdatebyToken,
     getUserList,
     getUserListByRole,

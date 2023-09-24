@@ -1,11 +1,11 @@
 const { userRegistration,
     signupOTPVerify,
     signupResendOTP,
-    userLogin, userUpdatebyToken, getUserList, getUserListByRole, getUserAccountInfo, sendPasswordResetOtp, otpVerifyForResetPassword, changePasswordForOtpRequest, passwordResetByToken } = require('../../controllers/user.controller');
+    userLogin, userUpdatebyToken, getUserList, getUserListByRole, getUserAccountInfo, sendPasswordResetOtp, otpVerifyForResetPassword, changePasswordForOtpRequest, passwordResetByToken, userVerify } = require('../../controllers/user.controller');
 
 const userRoutes = require('express').Router();
 
-const { userAuth } = require('../../auth/index');
+const { userAuth, decodeToken } = require('../../auth/index');
 
 
 userRoutes.post('/signup', userRegistration);
@@ -13,6 +13,7 @@ userRoutes.post('/signup-otp-verify', signupOTPVerify);
 userRoutes.post('/signup-resend-otp', signupResendOTP);
 
 userRoutes.post('/login', userLogin)
+userRoutes.get('/verify', decodeToken, userVerify)
 
 userRoutes.post('/update', userAuth({ isAuth: true }), userUpdatebyToken)
 
