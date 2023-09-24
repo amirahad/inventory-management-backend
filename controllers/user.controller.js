@@ -397,6 +397,80 @@ const getUserAccountInfo = async (req, res, next) => {
     }
 };
 
+const passwordUpdateByAdmin = async (req, res) => {
+    try {
+        let { user } = res.locals;
+        const { body } = req;
+        if (!!body?.password && !!body?.confirmPassword) {
+            const hashedPassword = await bcrypt.hash(body.password, 8);
+            await User.updateOne({ _id: new mongoose.Types.ObjectId(body._id) }, { password: hashedPassword })
+            return res.status(200).send({
+                error: false,
+                msg: 'Password Successfully updated',
+            })
+        } else {
+            return res.status(400).send({
+                error: true,
+                msg: 'Wrong Action',
+            })
+        }
+    } catch (e) {
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+}
+
+const accountDeactivate = async (req, res) => {
+    try {
+        let { user } = res.locals;
+        const { body } = req;
+        if (user?._id) {
+            await User.updateOne({ _id: new mongoose.Types.ObjectId(body._id) }, { $set: { active: body.active } })
+            return res.status(200).send({
+                error: false,
+                msg: body.active === true ? 'Account activated successful' : 'Account deactivate successful',
+            })
+        } else {
+            return res.status(200).send({
+                error: false,
+                msg: 'Authentication failed',
+            })
+        }
+    } catch (e) {
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+}
+
+const userUpdateByAdmin = async (req, res) => {
+    try {
+        const { body } = req;
+        let isUser = await User.findById(body?._id);
+        if (!!isUser) {
+            delete body.password;
+            await User.updateOne({ _id: new mongoose.Types.ObjectId(body._id) }, { $set: body })
+            return res.status(200).send({
+                error: false,
+                msg: 'Successfully updated',
+            })
+        } else {
+            return res.status(401).send({
+                error: true,
+                msg: 'User not found'
+            })
+        }
+    } catch (e) {
+        return res.status(500).send({
+            error: true,
+            msg: 'Server failed'
+        })
+    }
+};
+
 //password reset
 
 const sendPasswordResetOtp = async (req, res) => {
@@ -604,6 +678,9 @@ module.exports = {
     getUserList,
     getUserListByRole,
     getUserAccountInfo,
+    passwordUpdateByAdmin,
+    accountDeactivate,
+    userUpdateByAdmin,
     sendPasswordResetOtp,
     otpVerifyForResetPassword,
     changePasswordForOtpRequest,
